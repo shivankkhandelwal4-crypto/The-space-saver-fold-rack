@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space-Saver Folding Rack | High-Fidelity Prototype</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0f19; /* Deep dark blue/black */
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+        
+        h1, h2, h3, .brand-font {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        /* Glassmorphism utilities */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 60vh;
+            position: relative;
+            outline: none;
+            cursor: move;
+            overflow: hidden; /* Keep labels inside */
+        }
+
+        .feature-card {
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: #60a5fa;
+        }
+
+        /* Toggle Switch Animation */
+        .toggle-btn {
+            transition: all 0.3s ease;
+        }
+        .toggle-btn.active {
+            background-color: #fbbf24; /* Amber for Light On */
+            box-shadow: 0 0 20px #fbbf24;
+        }
+        
+        /* Specific color for Explode button */
+        .toggle-btn.explode-active {
+            background-color: #ef4444; /* Red for warning/explode */
+            box-shadow: 0 0 15px #ef4444;
+        }
+
+        /* Specific color for Arms button */
+        .toggle-btn.arms-active {
+            background-color: #3b82f6; 
+            box-shadow: 0 0 15px #3b82f6;
+        }
+
+        /* Heat/Lamp Glow Animation on UI */
+        .lamp-glow {
+            animation: pulse-warm 3s infinite;
+            border-color: #fbbf24;
+        }
+        @keyframes pulse-warm {
+            0% { box-shadow: 0 0 10px rgba(251, 191, 36, 0.2); }
+            50% { box-shadow: 0 0 25px rgba(251, 191, 36, 0.6); }
+            100% { box-shadow: 0 0 10px rgba(251, 191, 36, 0.2); }
+        }
+
+        /* --- 3D LABELS CSS --- */
+        .label-point {
+            position: absolute;
+            top: 0;
+            left: 0;
+            /* Center the label on the point */
+            transform: translate(-50%, -50%); 
+            pointer-events: none;
+            opacity: 0; /* Hidden by default */
+            transition: opacity 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 10;
+        }
+
+        .label-point.visible {
+            opacity: 1;
+        }
+
+        /* The glowing dot */
+        .label-dot {
+            width: 10px;
+            height: 10px;
+            background: #ef4444; /* Match Component Button Color */
+            border: 2px solid white;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #ef4444;
+        }
+
+        /* The text box */
+        .label-text {
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(4px);
+            padding: 6px 12px;
+            border-radius: 6px;
+            border-left: 3px solid #ef4444;
+            color: #e2e8f0;
+            font-size: 12px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            white-space: nowrap;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-blue-500 selection:text-white">
+
+    <!-- Navigation -->
+    <nav class="fixed w-full z-50 top-0 left-0 glass-panel border-b-0">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <i data-lucide="layers" class="text-blue-400 w-6 h-6"></i>
+                <span class="text-xl font-bold tracking-wide brand-font text-white">PROTO<span class="text-blue-400">TYPE</span>.v4</span>
+            </div>
+            <div class="hidden md:flex gap-8 text-sm font-medium text-slate-300">
+                <a href="#overview" class="hover:text-white transition">Overview</a>
+                <a href="#features" class="hover:text-white transition">Features</a>
+                <a href="#specs" class="hover:text-white transition">Tech Specs</a>
+            </div>
+            <div class="text-xs text-slate-400 border border-slate-700 rounded-full px-3 py-1">
+                RID-R57312
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Hero / 3D Viewer -->
+    <section class="relative pt-24 pb-12 lg:pt-32 lg:min-h-screen flex flex-col lg:flex-row items-center max-w-7xl mx-auto px-6 gap-12">
+        
+        <!-- Left: Controls & Context -->
+        <div class="w-full lg:w-1/3 z-10 order-2 lg:order-1 space-y-8">
+            <div>
+                <h2 class="text-sm font-bold text-blue-400 tracking-widest mb-2 uppercase">Design Thinking Project</h2>
+                <h1 class="text-4xl md:text-5xl font-bold mb-4 brand-font leading-tight">The Space-Saver <br/><span class="gradient-text">Vertical Fold Rack</span></h1>
+                <p class="text-slate-400 leading-relaxed">
+                    A compact storage solution with <strong>vertically folding arms</strong>. Click "Component View" to inspect individual parts.
+                </p>
+            </div>
+
+            <!-- Interactive Control Panel -->
+            <div class="glass-panel p-6 rounded-2xl border border-slate-700">
+                <h3 class="text-sm uppercase tracking-wider text-slate-500 mb-4 font-semibold">Prototype Controls</h3>
+                
+                <div class="space-y-4">
+                    <!-- Lamp Control -->
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-slate-800 p-2 rounded-lg text-yellow-400">
+                                <i data-lucide="lightbulb"></i>
+                            </div>
+                            <div>
+                                <div class="font-semibold text-white">LED Lamp</div>
+                                <div class="text-xs text-slate-500">Press to toggle Heat/Light</div>
+                            </div>
+                        </div>
+                        <button id="btn-lamp" class="toggle-btn w-12 h-6 rounded-full bg-slate-700 relative border border-slate-600">
+                            <div class="dot absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-all"></div>
+                        </button>
+                    </div>
+
+                    <!-- Arms Control -->
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-slate-800 p-2 rounded-lg text-blue-400">
+                                <i data-lucide="move-diagonal"></i>
+                            </div>
+                            <div>
+                                <div class="font-semibold text-white">Folding Arms</div>
+                                <div class="text-xs text-slate-500">Lift / Drop Arms</div>
+                            </div>
+                        </div>
+                        <button id="btn-arms" class="toggle-btn w-12 h-6 rounded-full bg-slate-700 relative border border-slate-600">
+                            <div class="dot absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-all"></div>
+                        </button>
+                    </div>
+
+                    <!-- Explode View Control -->
+                    <div class="flex items-center justify-between border-t border-slate-700 pt-4 mt-2">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-slate-800 p-2 rounded-lg text-red-400">
+                                <i data-lucide="box-select"></i>
+                            </div>
+                            <div>
+                                <div class="font-semibold text-white">Component View</div>
+                                <div class="text-xs text-slate-500">Show Internal Parts & Names</div>
+                            </div>
+                        </div>
+                        <button id="btn-explode" class="toggle-btn w-12 h-6 rounded-full bg-slate-700 relative border border-slate-600">
+                            <div class="dot absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-all"></div>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="mt-6 pt-4 border-t border-slate-700">
+                    <div class="flex justify-between text-xs text-slate-400">
+                        <span>System: <span id="status-text" class="text-green-400 font-mono">READY</span></span>
+                        <span class="flex items-center gap-1"><i data-lucide="rotate-3d" class="w-3 h-3"></i> Interactive 3D</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: 3D Canvas -->
+        <div class="w-full lg:w-2/3 h-[500px] lg:h-[600px] order-1 lg:order-2 relative group">
+            <div id="canvas-container" class="rounded-3xl overflow-hidden shadow-2xl shadow-blue-900/20 border border-slate-800 bg-gradient-to-b from-slate-900 to-black">
+                <!-- LABELS (Dynamically positioned via JS) -->
+                <div id="label-lamp" class="label-point">
+                    <div class="label-dot"></div>
+                    <div class="label-text">Thermal LED Lamp</div>
+                </div>
+                <div id="label-arms" class="label-point">
+                    <div class="label-dot"></div>
+                    <div class="label-text">Wooden Folding Arms</div>
+                </div>
+                <div id="label-pole" class="label-point">
+                    <div class="label-dot"></div>
+                    <div class="label-text">Telescopic Pole</div>
+                </div>
+                <div id="label-base" class="label-point">
+                    <div class="label-dot"></div>
+                    <div class="label-text">Tripod Base & Battery</div>
+                </div>
+            </div>
+            
+            <!-- Floating overlay labels -->
+            <div class="absolute bottom-6 right-6 pointer-events-none z-20">
+                <div class="glass-panel px-4 py-2 rounded-lg text-xs font-mono text-slate-300">
+                    View: <span id="view-mode">ASSEMBLED</span><br>
+                    Arms: <span id="mode-display">FOLDED</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Detailed Grid -->
+    <section id="features" class="py-20 bg-slate-900/50">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Feature 1 -->
+                <div class="feature-card glass-panel p-6 rounded-xl border border-slate-700/50">
+                    <i data-lucide="minimize-2" class="text-blue-400 mb-4 h-8 w-8"></i>
+                    <h3 class="text-lg font-bold text-white mb-2">Space Efficient</h3>
+                    <p class="text-slate-400 text-sm">Arms fold down vertically against the central pole, minimizing footprint when not in use.</p>
+                </div>
+
+                <!-- Feature 2 -->
+                <div class="feature-card glass-panel p-6 rounded-xl border border-slate-700/50">
+                    <i data-lucide="refresh-cw" class="text-blue-400 mb-4 h-8 w-8"></i>
+                    <h3 class="text-lg font-bold text-white mb-2">360° Rotation</h3>
+                    <p class="text-slate-400 text-sm">Rotating head allows easy access to all hanging bars without moving the stable tripod base.</p>
+                </div>
+
+                <!-- Feature 3 -->
+                <div class="feature-card glass-panel p-6 rounded-xl border border-slate-700/50">
+                    <i data-lucide="thermometer-sun" class="text-yellow-400 mb-4 h-8 w-8"></i>
+                    <h3 class="text-lg font-bold text-white mb-2">Thermal Drying</h3>
+                    <p class="text-slate-400 text-sm">Central LED lamp produces controlled heat to accelerate drying while providing ambient lighting.</p>
+                </div>
+
+                <!-- Feature 4 -->
+                <div class="feature-card glass-panel p-6 rounded-xl border border-slate-700/50">
+                    <i data-lucide="battery-charging" class="text-green-400 mb-4 h-8 w-8"></i>
+                    <h3 class="text-lg font-bold text-white mb-2">Portable Power</h3>
+                    <p class="text-slate-400 text-sm">Works on cells/battery for complete portability. Lightweight design ensures it can be carried anywhere.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Problem vs Solution & Specs -->
+    <section id="specs" class="py-20">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+                <!-- Problem Statement -->
+                <div>
+                    <h3 class="text-2xl font-bold text-white mb-6 brand-font border-l-4 border-red-500 pl-4">Problem Statement</h3>
+                    <ul class="space-y-4">
+                        <li class="flex items-start gap-3 text-slate-400">
+                            <i data-lucide="x-circle" class="text-red-500 mt-1 flex-shrink-0"></i>
+                            <span><strong>Lack of Space:</strong> Urban living areas are shrinking, making traditional racks impractical.</span>
+                        </li>
+                        <li class="flex items-start gap-3 text-slate-400">
+                            <i data-lucide="x-circle" class="text-red-500 mt-1 flex-shrink-0"></i>
+                            <span><strong>Bulky Storage:</strong> Conventional racks are hard to hide when not in use.</span>
+                        </li>
+                        <li class="flex items-start gap-3 text-slate-400">
+                            <i data-lucide="x-circle" class="text-red-500 mt-1 flex-shrink-0"></i>
+                            <span><strong>Fixed/Irreplaceable:</strong> Heavy units that cannot be easily moved or repaired.</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Technical Specs -->
+                <div>
+                    <h3 class="text-2xl font-bold text-white mb-6 brand-font border-l-4 border-blue-500 pl-4">Technical Specifications</h3>
+                    <div class="overflow-hidden rounded-lg border border-slate-700">
+                        <table class="min-w-full text-sm text-left text-slate-400">
+                            <thead class="text-xs uppercase bg-slate-800 text-slate-300">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3">Component</th>
+                                    <th scope="col" class="px-6 py-3">Detail</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="bg-slate-900 border-b border-slate-800">
+                                    <td class="px-6 py-4 font-medium text-white">Load Rating</td>
+                                    <td class="px-6 py-4">8 Kg Max</td>
+                                </tr>
+                                <tr class="bg-slate-900 border-b border-slate-800">
+                                    <td class="px-6 py-4 font-medium text-white">Material</td>
+                                    <td class="px-6 py-4">Composite Body / Wooden Arms</td>
+                                </tr>
+                                <tr class="bg-slate-900 border-b border-slate-800">
+                                    <td class="px-6 py-4 font-medium text-white">Mechanism</td>
+                                    <td class="px-6 py-4">Vertical Hinge (Fold Down/Up)</td>
+                                </tr>
+                                <tr class="bg-slate-900">
+                                    <td class="px-6 py-4 font-medium text-white">Controls</td>
+                                    <td class="px-6 py-4">3-State Button Logic</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 bg-slate-950 py-12">
+        <div class="max-w-7xl mx-auto px-6 text-center">
+            <h2 class="text-xl font-bold text-white mb-2">Project Submission</h2>
+            <div class="flex flex-col md:flex-row justify-center items-center gap-4 md:gap-8 mt-6 text-sm text-slate-500">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="user" class="w-4 h-4"></i>
+                    <span>Shivank Khandelwal</span>
+                </div>
+                <div class="hidden md:block w-1 h-1 bg-slate-700 rounded-full"></div>
+                <div class="flex items-center gap-2">
+                    <i data-lucide="hash" class="w-4 h-4"></i>
+                    <span>RID-R57312</span>
+                </div>
+                <div class="hidden md:block w-1 h-1 bg-slate-700 rounded-full"></div>
+                <div class="flex items-center gap-2">
+                    <i data-lucide="send" class="w-4 h-4"></i>
+                    <span>Submitted to: Jitendra Sir</span>
+                </div>
+            </div>
+            <p class="mt-8 text-xs text-slate-700">© 2026 Prototype Design. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Script to handle 3D Scene and Logic -->
+    <script>
+        // --- UI Logic ---
+        lucide.createIcons();
+
+        const btnLamp = document.getElementById('btn-lamp');
+        const btnArms = document.getElementById('btn-arms');
+        const btnExplode = document.getElementById('btn-explode');
+        const statusText = document.getElementById('status-text');
+        const modeDisplay = document.getElementById('mode-display');
+        const viewDisplay = document.getElementById('view-mode');
+
+        // DOM Label Elements
+        const labelLamp = document.getElementById('label-lamp');
+        const labelArms = document.getElementById('label-arms');
+        const labelPole = document.getElementById('label-pole');
+        const labelBase = document.getElementById('label-base');
+
+        let isLampOn = false;
+        let isArmsOpen = false;
+        let isExploded = false;
+
+        // --- Three.js Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x111827); 
+        scene.fog = new THREE.Fog(0x111827, 10, 50);
+
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+        camera.position.set(0, 15, 25);
+        camera.lookAt(0, 6, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // --- Lighting ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+
+        const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        mainLight.position.set(10, 20, 10);
+        mainLight.castShadow = true;
+        mainLight.shadow.mapSize.width = 1024;
+        mainLight.shadow.mapSize.height = 1024;
+        scene.add(mainLight);
+
+        // Warm light for lamp (PointLight) - Ambient glow
+        const heaterLight = new THREE.PointLight(0xffaa00, 0, 50); 
+        heaterLight.position.set(0, 5, 0); 
+        scene.add(heaterLight);
+
+        // SpotLight for the "Lamp" beam effect
+        const spotLight = new THREE.SpotLight(0xffaa00, 0);
+        spotLight.position.set(0, 15, 0); // Start high
+        spotLight.angle = Math.PI / 4;
+        spotLight.penumbra = 0.5;
+        spotLight.decay = 2;
+        spotLight.distance = 50;
+        spotLight.castShadow = true;
+        scene.add(spotLight);
+        scene.add(spotLight.target);
+
+        // --- Materials ---
+        const metalMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x94a3b8, 
+            roughness: 0.3, 
+            metalness: 0.8 
+        });
+        
+        const darkMetalMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x334155, 
+            roughness: 0.5, 
+            metalness: 0.6 
+        });
+        
+        const woodMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0xa05a2c, 
+            roughness: 0.8,
+            metalness: 0.0
+        });
+
+        const lampBodyMaterial = new THREE.MeshStandardMaterial({
+            color: 0x1e293b,
+            roughness: 0.4
+        });
+
+        const glassMaterial = new THREE.MeshPhysicalMaterial({
+            roughness: 0,
+            transmission: 0.9,
+            thickness: 0.5,
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.5
+        });
+
+        const rubberMaterial = new THREE.MeshStandardMaterial({
+            color: 0x111111,
+            roughness: 0.9
+        });
+
+        // --- Helper: Glow Sprite ---
+        function createGlowTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const context = canvas.getContext('2d');
+            const gradient = context.createRadialGradient(32, 32, 0, 32, 32, 32);
+            gradient.addColorStop(0, 'rgba(255, 190, 50, 1)'); // Brighter core
+            gradient.addColorStop(0.3, 'rgba(255, 170, 0, 0.6)');
+            gradient.addColorStop(0.6, 'rgba(255, 170, 0, 0.1)');
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            context.fillStyle = gradient;
+            context.fillRect(0, 0, 64, 64);
+            const texture = new THREE.CanvasTexture(canvas);
+            return texture;
+        }
+
+        const glowSpriteMaterial = new THREE.SpriteMaterial({ 
+            map: createGlowTexture(), 
+            color: 0xffaa00, 
+            transparent: true, 
+            opacity: 0,
+            blending: THREE.AdditiveBlending
+        });
+        const glowSprite = new THREE.Sprite(glowSpriteMaterial);
+        glowSprite.scale.set(12, 12, 1);
+
+        // --- Model Construction ---
+        const rackGroup = new THREE.Group();
+        scene.add(rackGroup);
+
+        // 1. BASE ASSEMBLY
+        const baseGroup = new THREE.Group();
+        rackGroup.add(baseGroup);
+
+        // Battery Housing (Main center of base)
+        const batteryHousingGeo = new THREE.CylinderGeometry(1.5, 1.8, 3, 32);
+        const batteryHousing = new THREE.Mesh(batteryHousingGeo, darkMetalMaterial);
+        batteryHousing.position.y = 1.5;
+        batteryHousing.castShadow = true;
+        baseGroup.add(batteryHousing);
+
+        // Tripod Legs
+        for (let i = 0; i < 3; i++) {
+            const angle = (i / 3) * Math.PI * 2;
+            const pivot = new THREE.Group();
+            pivot.rotation.y = angle;
+            
+            // Leg
+            const legGeo = new THREE.CylinderGeometry(0.25, 0.2, 9, 16);
+            const leg = new THREE.Mesh(legGeo, metalMaterial);
+            leg.position.y = 1; 
+            leg.position.z = 3; 
+            leg.rotation.x = -0.6; 
+            leg.castShadow = true;
+            pivot.add(leg);
+
+            // Rubber Foot
+            const footGeo = new THREE.SphereGeometry(0.3, 16, 16);
+            const foot = new THREE.Mesh(footGeo, rubberMaterial);
+            foot.position.y = -2.5; 
+            foot.position.z = 5.5; 
+            pivot.add(foot);
+
+            baseGroup.add(pivot);
+        }
+
+        // 2. CENTRAL POLE (Telescopic/Fixed)
+        const poleGroup = new THREE.Group();
+        poleGroup.position.y = 3; 
+        rackGroup.add(poleGroup);
+
+        const poleGeo = new THREE.CylinderGeometry(0.8, 0.9, 10, 32);
+        const pole = new THREE.Mesh(poleGeo, metalMaterial);
+        pole.position.y = 5; 
+        pole.castShadow = true;
+        poleGroup.add(pole);
+        
+        const ringGeo = new THREE.TorusGeometry(0.85, 0.05, 8, 32);
+        const ring1 = new THREE.Mesh(ringGeo, darkMetalMaterial);
+        ring1.position.y = 2;
+        ring1.rotation.x = Math.PI/2;
+        pole.add(ring1);
+        
+        const ring2 = new THREE.Mesh(ringGeo, darkMetalMaterial);
+        ring2.position.y = 6;
+        ring2.rotation.x = Math.PI/2;
+        pole.add(ring2);
+
+        // 3. ARM ASSEMBLY (Hinge Hub + Arms)
+        const armsAnchor = new THREE.Group();
+        armsAnchor.position.y = 13;
+        rackGroup.add(armsAnchor);
+
+        const hubGeo = new THREE.CylinderGeometry(1.2, 1.0, 1.5, 32);
+        const hub = new THREE.Mesh(hubGeo, darkMetalMaterial);
+        hub.position.y = 0; 
+        hub.castShadow = true;
+        armsAnchor.add(hub);
+
+        const hingeArray = [];
+        const numArms = 8;
+
+        for (let i = 0; i < numArms; i++) {
+            const armPivot = new THREE.Group();
+            const angle = (i / numArms) * Math.PI * 2;
+            armPivot.rotation.y = angle;
+
+            const hingeNode = new THREE.Group();
+            hingeNode.position.x = 1.0; 
+            
+            const jointGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.6, 16);
+            const joint = new THREE.Mesh(jointGeo, metalMaterial);
+            joint.rotation.x = Math.PI / 2;
+            hingeNode.add(joint);
+
+            const armLength = 7;
+            const armGeo = new THREE.CylinderGeometry(0.12, 0.12, armLength, 16);
+            armGeo.translate(0, -armLength/2, 0); 
+            
+            const arm = new THREE.Mesh(armGeo, woodMaterial);
+            arm.castShadow = true;
+            
+            hingeNode.add(arm);
+            hingeArray.push(hingeNode);
+            armPivot.add(hingeNode);
+            armsAnchor.add(armPivot);
+        }
+
+        // 4. LAMP HEAD ASSEMBLY
+        const lampGroup = new THREE.Group();
+        lampGroup.position.y = 13.75;
+        rackGroup.add(lampGroup);
+
+        const neckGeo = new THREE.CylinderGeometry(0.4, 0.4, 1, 16);
+        const neck = new THREE.Mesh(neckGeo, metalMaterial);
+        neck.position.y = 0.5;
+        lampGroup.add(neck);
+
+        const lampBodyGeo = new THREE.CylinderGeometry(1.2, 1.2, 1.5, 32);
+        const lampBody = new THREE.Mesh(lampBodyGeo, lampBodyMaterial);
+        lampBody.position.y = 1.75;
+        lampBody.castShadow = true;
+        lampGroup.add(lampBody);
+
+        const lensGeo = new THREE.CylinderGeometry(1.0, 1.0, 0.2, 32);
+        const lens = new THREE.Mesh(lensGeo, glassMaterial);
+        lens.position.y = 2.5; 
+        lampGroup.add(lens);
+
+        // --- NEW: REALISTIC LED ARRAY ---
+        const ledGroup = new THREE.Group();
+        lampGroup.add(ledGroup);
+
+        // LED Backplate (White PCB)
+        const plateGeo = new THREE.CylinderGeometry(0.9, 0.9, 0.1, 32);
+        const plateMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
+        const plate = new THREE.Mesh(plateGeo, plateMat);
+        plate.position.y = 2.2;
+        ledGroup.add(plate);
+
+        // LED Chips Material
+        const ledChipMat = new THREE.MeshStandardMaterial({ 
+            color: 0xffffee,
+            emissive: 0xffaa00,
+            emissiveIntensity: 0
+        });
+
+        // Create a ring of LEDs + Center LED
+        const ledChipGeo = new THREE.BoxGeometry(0.15, 0.05, 0.15);
+        for(let i=0; i<8; i++) {
+            const angle = (i/8) * Math.PI * 2;
+            const chip = new THREE.Mesh(ledChipGeo, ledChipMat);
+            chip.position.set(Math.cos(angle)*0.5, 2.25, Math.sin(angle)*0.5);
+            ledGroup.add(chip);
+        }
+        const centerChip = new THREE.Mesh(ledChipGeo, ledChipMat);
+        centerChip.position.y = 2.25;
+        ledGroup.add(centerChip);
+
+        // --- NEW: VOLUMETRIC LIGHT BEAM ---
+        // A transparent cone that fades in when light is on
+        const beamGeo = new THREE.CylinderGeometry(1.0, 3.5, 12, 32, 1, true); // Open ended cone
+        beamGeo.translate(0, -6, 0); // Shift down so top is at origin
+        const beamMat = new THREE.MeshBasicMaterial({
+            color: 0xffaa00,
+            transparent: true,
+            opacity: 0,
+            side: THREE.DoubleSide,
+            depthWrite: false, // Don't occlude other objects
+            blending: THREE.AdditiveBlending
+        });
+        const lightBeam = new THREE.Mesh(beamGeo, beamMat);
+        lightBeam.position.y = 2.4; // Start at LED level
+        lampGroup.add(lightBeam);
+
+        // Add Glow Sprite to Lamp Group
+        glowSprite.position.set(0, 2.5, 0);
+        lampGroup.add(glowSprite);
+
+
+        // Floor Grid (Visual Aid)
+        const gridHelper = new THREE.GridHelper(60, 60, 0x334155, 0x1e293b);
+        scene.add(gridHelper);
+
+        // --- Label Positioning Logic ---
+        function updateLabel(label, obj, yOffset = 0) {
+            if (!label || !obj) return;
+            
+            // Get position
+            const tempV = new THREE.Vector3();
+            obj.getWorldPosition(tempV);
+            tempV.y += yOffset;
+
+            // Project to 2D screen space
+            tempV.project(camera);
+
+            // Convert to pixels
+            const x = (tempV.x * .5 + .5) * container.clientWidth;
+            const y = (tempV.y * -.5 + .5) * container.clientHeight;
+
+            // Update DOM element
+            label.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+            
+            // Z-index trick: fade out if behind camera or too far?
+            // For now, just simplistic visibility toggle via class
+        }
+
+        // --- Animation Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // 1. Arm Folding Logic
+            const targetAngle = isArmsOpen ? (Math.PI / 2) : 0.08;
+            hingeArray.forEach(hinge => {
+                hinge.rotation.z += (targetAngle - hinge.rotation.z) * 0.08;
+            });
+
+            // 2. Lamp Logic
+            if (isLampOn) {
+                // Brighter light source
+                heaterLight.intensity += (5 - heaterLight.intensity) * 0.1;
+                spotLight.intensity += (10 - spotLight.intensity) * 0.1;
+
+                // Turn on LEDs (Emissive)
+                ledChipMat.emissiveIntensity += (5 - ledChipMat.emissiveIntensity) * 0.1;
+                
+                // Show volumetric beam
+                beamMat.opacity += (0.15 - beamMat.opacity) * 0.1;
+
+                // Show glow sprite
+                glowSpriteMaterial.opacity += (0.8 - glowSpriteMaterial.opacity) * 0.1;
+                
+                // Pulse the sprite size
+                const scale = 14 + Math.sin(Date.now() * 0.005) * 1.5;
+                glowSprite.scale.set(scale, scale, 1);
+            } else {
+                heaterLight.intensity += (0 - heaterLight.intensity) * 0.1;
+                spotLight.intensity += (0 - spotLight.intensity) * 0.1;
+                ledChipMat.emissiveIntensity += (0 - ledChipMat.emissiveIntensity) * 0.1;
+                beamMat.opacity += (0 - beamMat.opacity) * 0.1;
+                glowSpriteMaterial.opacity += (0 - glowSpriteMaterial.opacity) * 0.1;
+            }
+            
+            // Sync Light Position
+            const lampWorldPos = new THREE.Vector3();
+            // Use the plate position for light source
+            plate.getWorldPosition(lampWorldPos);
+            
+            heaterLight.position.copy(lampWorldPos);
+            heaterLight.position.y += 0.5; // Offset slightly above
+
+            spotLight.position.copy(lampWorldPos);
+            spotLight.position.y += 1.0; 
+            spotLight.target.position.set(lampWorldPos.x, 0, lampWorldPos.z);
+            spotLight.target.updateMatrixWorld();
+
+            // 3. Exploded View Logic
+            const targetY_Lamp = isExploded ? 20 : 13.75;
+            const targetY_Arms = isExploded ? 16 : 13;
+            const targetY_Pole = isExploded ? 4 : 3; 
+            const targetY_Base = isExploded ? -2 : 0; 
+
+            lampGroup.position.y += (targetY_Lamp - lampGroup.position.y) * 0.05;
+            armsAnchor.position.y += (targetY_Arms - armsAnchor.position.y) * 0.05;
+            poleGroup.position.y += (targetY_Pole - poleGroup.position.y) * 0.05;
+            baseGroup.position.y += (targetY_Base - baseGroup.position.y) * 0.05;
+
+            // 4. Update Labels
+            if (isExploded) {
+                updateLabel(labelLamp, lampGroup, 2.5); // Offset slightly up
+                updateLabel(labelArms, armsAnchor, 0); 
+                updateLabel(labelPole, poleGroup, 4); // Middle of pole
+                updateLabel(labelBase, baseGroup, 1); 
+
+                // Ensure labels are visible
+                labelLamp.classList.add('visible');
+                labelArms.classList.add('visible');
+                labelPole.classList.add('visible');
+                labelBase.classList.add('visible');
+            } else {
+                 // Hide labels
+                labelLamp.classList.remove('visible');
+                labelArms.classList.remove('visible');
+                labelPole.classList.remove('visible');
+                labelBase.classList.remove('visible');
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // --- Interaction Logic ---
+        window.addEventListener('resize', () => {
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            renderer.setSize(width, height);
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+        });
+
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+
+        container.addEventListener('mousedown', (e) => {
+            isDragging = true;
+        });
+        
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const deltaMove = {
+                    x: e.offsetX - previousMousePosition.x,
+                    y: e.offsetY - previousMousePosition.y
+                };
+
+                const deltaRotationQuaternion = new THREE.Quaternion()
+                    .setFromEuler(new THREE.Euler(
+                        0,
+                        deltaMove.x * 0.01,
+                        0,
+                        'XYZ'
+                    ));
+                
+                rackGroup.quaternion.multiplyQuaternions(deltaRotationQuaternion, rackGroup.quaternion);
+            }
+            previousMousePosition = {
+                x: e.offsetX,
+                y: e.offsetY
+            };
+        });
+
+        // Button Listeners
+        btnLamp.addEventListener('click', () => {
+            isLampOn = !isLampOn;
+            btnLamp.classList.toggle('active');
+            
+            const dot = btnLamp.querySelector('.dot');
+            dot.style.transform = isLampOn ? 'translateX(24px)' : 'translateX(0)';
+            
+            statusText.innerText = isLampOn ? "LAMP/HEATER ON" : "STANDBY";
+            statusText.className = isLampOn ? "text-yellow-400 font-mono animate-pulse" : "text-green-400 font-mono";
+            
+            if(isLampOn) btnLamp.parentElement.classList.add('lamp-glow');
+            else btnLamp.parentElement.classList.remove('lamp-glow');
+        });
+
+        btnArms.addEventListener('click', () => {
+            isArmsOpen = !isArmsOpen;
+            btnArms.classList.toggle('active');
+            btnArms.classList.toggle('arms-active'); // Add blue color
+            
+            const dot = btnArms.querySelector('.dot');
+            dot.style.transform = isArmsOpen ? 'translateX(24px)' : 'translateX(0)';
+
+            modeDisplay.innerText = isArmsOpen ? "DEPLOYED" : "FOLDED";
+            modeDisplay.className = isArmsOpen ? "text-blue-400 font-bold" : "text-slate-300";
+        });
+
+        btnExplode.addEventListener('click', () => {
+            isExploded = !isExploded;
+            btnExplode.classList.toggle('explode-active');
+            
+            const dot = btnExplode.querySelector('.dot');
+            dot.style.transform = isExploded ? 'translateX(24px)' : 'translateX(0)';
+            
+            viewDisplay.innerText = isExploded ? "COMPONENTS" : "ASSEMBLED";
+            viewDisplay.className = isExploded ? "text-red-400 font-bold" : "text-slate-300";
+            
+            statusText.innerText = isExploded ? "INSPECTION MODE" : "STANDBY";
+            statusText.className = isExploded ? "text-red-400 font-mono" : "text-green-400 font-mono";
+        });
+
+    </script>
+</body>
+</html>
